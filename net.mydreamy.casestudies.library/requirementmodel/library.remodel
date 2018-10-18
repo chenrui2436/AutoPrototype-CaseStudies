@@ -301,36 +301,49 @@ Entity Librarian {
 /* -------------------- Contracts ----------------------*/
 /* Search book */
 Contract LibraryManagementSystem::searchBookByBarCode(barcode : Integer) : Set(Book)  {
+	/* barcode type is integer */
 	precondition: barcode.oclIsTypeOf(Integer)
+	/get result through finding specific book by exist bookcopy by barcode?????*/
 	postcondition: result = Book.allInstance()->select(book:Book | book.Copys->exists(c:BookCopy | c.Barcode = barcode))
 }       
      
 Contract LibraryManagementSystem::searchBookByTitle(title : String) : Set(Book) {
-	precondition: title <> ""          
+	/* Title is not empty */
+	precondition: title <> ""     
+	/* get result through finding specific book by title */
 	postcondition: result = Book.allInstance()->select(book:Book | book.Title = title)
 }     
         
 Contract LibraryManagementSystem::searchBookByAuthor(authorname : String) : Set(Book) {
+	/* authorname is not empty */
 	precondition: authorname <> ""
+	/* get result through finding specific book by authorname */
 	postcondition: result = Book.allInstance()->select(book:Book | book.Author = authorname)
 } 
                      
 Contract LibraryManagementSystem::searchBookByISBN(ISBNnumber : Integer) : Set(Book) {
+ 	/* ISBNnumber type is integer */
 	precondition: ISBNnumber.oclIsTypeOf(Integer)
+	/* get result through finding specific book by ISBNnumber */
 	postcondition: result = Book.allInstance()->select(book:Book | book.ISBn = ISBNnumber)
 } 
      
 Contract LibraryManagementSystem::searchBookBySubject(subject : String) : Set(Book) {
+	/*subject type is string */
 	precondition: subject.oclIsTypeOf(String)
+	/get result through finding specific book by exist subject by subject name ??????*/
 	postcondition: result = Book.allInstance()->select(book:Book| book.Subject->exists(s:Subject | s.Name = subject))
 }          
    
 /* Main functions */
 Contract LibraryManagementSystem::makeReservation(uid : Integer, barcode : Integer)  {
-	
+	/* find spcific user instance by userid*/
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
+	/* find spcific bookcopy instance by barcode*/
 				copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode)
-			
+	/*user is defined*/
+	/*copy is defined*/
+	/* 
 	precondition:  user.oclIsUndefined() = false and copy.oclIsUndefined() = false and copy.Status = CopyStatus::LOANED and copy.IsReserved = false
 	
 	postcondition: let res:Reserve in res.oclIsNew() and copy.IsReserved = true and res.IsReserveClosed = false and res.ReservedUser = user and res.ReservedCopy = copy and user.ReservedBook->includes(res) and 
@@ -610,14 +623,21 @@ Contract LibraryManagementSystem::createLibrarian(lib : Librarian) {
 }
 
 Contract LibraryManagementSystem::deleteLibrarian(librarianID : Integer) {
+/*find specific Librarian instance by librainID */
 	definition: librarian:Librarian = Librarian.allInstance()->any(lib:Librarian | lib.LibrarianID = librarianID)
+	/*librarian was assoicated with librarian?????我的理解是所有librarian中包含这个librarian*/
 	precondition: Librarian.allInstance()->includes(librarian)
+	/*???????从所有的librarian中除掉这个librarian*/
 	postcondition: Librarian.allInstance()->excludes(librarian)
 }
  
 Contract LibraryManagementSystem::queryLibrarian(librarianID : Integer) : Librarian{
+/*find specific Librarian instance by librainID */
 	definition: librarian:Librarian = Librarian.allInstance()->any(lib:Librarian | lib.LibrarianID = librarianID)
+	/*librarian is defined*/
 	precondition: librarian.oclIsUndefined() = false 
+	/* result is equal to librarian */
+	/* assign librarian to result */
 	postcondition: result = librarian
 }
  
