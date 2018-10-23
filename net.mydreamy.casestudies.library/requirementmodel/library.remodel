@@ -467,66 +467,109 @@ Contract LibraryManagementSystem::returnBook(barcode: Integer) {
 	definition: copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode and bc.Status = CopyStatus::LOANED), 
 	            /* find spcific loan instance by loanedcopy and IsReturned is false*/
 	            loan:Loan = Loan.allInstance()->any(l:Loan | l.LoanedCopy = copy and l.IsReturned = false),
+		    /* ???????? */
 	            loans:Set(Loan) =  Loan.allInstance()->select(l:Loan | l.LoanedUser = loan.LoanedUser and l.IsReturned = false and l.DueDate.isAfter(Today)),
-	            res:Reserve = copy.ReservationRecord->any(r:Reserve | r.ReservedCopy = copy)
-	            
+	           /* find specific reserve by reservedcopy */ 
+		   res:Reserve = copy.ReservationRecord->any(r:Reserve | r.ReservedCopy = copy)
+	            /* copy is defined */
 	precondition: copy.oclIsUndefined() = false
-	 
+	 	/* loan loaneduser loanednumber minus 1 */
+		/* loan is returned */
+		/* loan isreturned is true */
+		/* loan returndate is today */
+		/* loan is returned today */
+		
 	postcondition: loan.LoanedUser.LoanedNumber = loan.LoanedUser.LoanedNumber@pre - 1 and loan.IsReturned = true and loan.ReturnDate = Today and 
+				/* if copy is reserved */
+				/* if copy isreserved is true */
+				/* if copy isreserved is equal to true */
 				if copy.IsReserved = true 
+				/* then copy status is ONHOLDSHELF */
+				/* send notification to reserveduser */
 				then
 					copy.Status =  CopyStatus::ONHOLDSHELF and sendNotificationEmail(res.ReservedUser)
+				/* else copy status is available */
 				else
 					copy.Status = CopyStatus::AVAILABLE
+				/* end if */	
 				endif 
 
 		 
 }
       
 Contract LibraryManagementSystem::renewBook(uid: Integer, barcode: Integer)  {
-	
+	/* find specific user instance by userid */
+	/* find specific bookcopy instance by barcode and copystatus is loaned */
+	/* find specific loan instance by loaneduser and loanedcopy */
 	definition:  user:User = User.allInstance()->any(u:User | u.UserID = uid), 
 	 			 copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode and bc.Status = CopyStatus::LOANED),
 	 			 loan:Loan = Loan.allInstance()->any(l:Loan | l.LoanedUser = user and l.LoanedCopy = copy)
-	 			 
+	 		/* user BorrowStatus is normal */
+			/* user is defined */
+			/* copy is defined */
+			/* loan is defined */
+			/* copy is not reserved */
+			/* loan DueDate isAfter today */
+			/* loan OverDueFee is 0 */
 	precondition: user.BorrowStatus = BorrowStatus::NORMAL and user.oclIsUndefined() = false and copy.oclIsUndefined() = false and loan.oclIsUndefined() = false and copy.IsReserved = false and loan.DueDate.isAfter(Today) and loan.OverDueFee = 0 and
+		/* if user type is student */
 		if user.oclIsTypeOf(Student)
+		/* then loan RenewedTimes is less than 3 */
 		then
 			loan.RenewedTimes < 3
+		/* else loan RenewedTimes is less than 6 */
 		else
 			loan.RenewedTimes < 6
+			/* end if */	
 		endif 
-		     
-	postcondition: 	loan.RenewedTimes = loan.RenewedTimes@pre + 1 and 
+		     /* loan RenewedTimes plus 1 */
+	postcondition: 	loan.RenewedTimes = loan.RenewedTimes@pre + 1 and
+		/* if user type is student */
 		if user.oclIsTypeOf(Student)
+		/* then if user programme is bachelor */
 		then 
 			if user.Programme = Programme::BACHELOR
+			/* then loan due date is after 20 */
 		  		then 
 		  			loan.DueDate = loan.DueDate@pre.After(20) 
+				/* else if user programme is master */
+					
 		  		else
 		  			if user.Programme = Programme::MASTER
+					/* then loan due date is after 40 */
 		  			then
 		  				loan.DueDate = loan.DueDate@pre.After(40) 
+					/* else loan due date is after 60 */
 		  			else
 		  				loan.DueDate = loan.DueDate@pre.After(60) 
+					/* end if */	
 		  			endif  
+				/* end if */		
 		  		endif
+		/* else loan due date is after 60 */
 		else
 			loan.DueDate = loan.DueDate@pre.After(60)
+		/* end if */	
 		endif  
 }          
         
 Contract LibraryManagementSystem::payOverDueFee(uid: Integer, fee: Real)  {
-	  
+	  /* find specific user instance by userid */
 	 definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
+	 /* ?????? */
 	 			 loans:Set(Loan) = Loan.allInstance()->select(l:Loan | l.LoanedUser = user and l.DueDate.isBefore(Today) and l.IsReturned = true and l.OverDueFee > 0)
-	   
+	   /* user is defined */
+	   /* loan(?) is not empty */
+	   /* fee is more than user OverDueFee */
 	 precondition: user.oclIsUndefined() = false and loans.notEmpty() and fee >= user.OverDueFee
+	 /* user OverDueFee is 0 */
+	 /* all loan OverDueFee is 0  ?????? */
 	 postcondition: user.OverDueFee = 0 and loans->forAll(l:Loan | l.OverDueFee = 0) 
 }      
  
 Contract LibraryManagementSystem::dueSoonNotification()  { 
 	precondition: true   
+	/* let ????/ */
 	postcondition: let users:Set(User) = User.allInstance()->select(user:User | user.LoanedBook->exists(loan:Loan | loan.IsReturned = false and Today.After(3).isAfter(loan.DueDate))) in 
 					users->forAll(u:User | sendNotificationEmail(u))
 }       
@@ -580,112 +623,176 @@ Contract LibraryManagementSystem::countDownSuspensionDay() {
 
 /* List records */
 Contract LibraryManagementSystem::listBorrowHistory(uid : Integer) : Set(Loan) {
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
+	/* user is defined */
 	precondition: user.oclIsUndefined() = false
 	/*postcondition: result = user.LoanedBook->collect(l:Loan| l.LoanedCopy)*/
+	/* assign user loanedbook to result */
 	postcondition: result = user.LoanedBook
 }
      
 /*Contract listHodingBook(uid : Integer) : Set(BookCopy) {
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
+	/* ???? */
 				loans:Set(Loan) = user.LoanedBook->select(l:Loan | l.isReturned = false)
+		/* user is defined */ 
+		/* loans is defined */
 	precondition: user.oclIsUndefined() = false and loans.oclIsUndefined() = false
+	/* get result through collect loan loanedcopy */
 	postcondition: result = loans->collect(l:Loan | l.LoanedCopy)   
 }*/
      
 Contract LibraryManagementSystem::listHodingBook(uid : Integer) : Set(Loan) {
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
+	/* user is defined */
 	precondition: user.oclIsUndefined() = false   
+	/* get result through collect ??? */
 	postcondition: result =  user.LoanedBook->select(l:Loan | l.IsReturned = false)
 }      
       
 Contract LibraryManagementSystem::listOverDueBook(uid : Integer) : Set(BookCopy) { 
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
+	/* ???? */
 				loans:Set(Loan) = user.LoanedBook->select(l:Loan | l.IsReturned = false and l.OverDueFee > 0)
+	/* user is defined */
+	/* loans is defined */
 	precondition: user.oclIsUndefined() = false and loans.oclIsUndefined() = false
+	/* get result through collect loan loanedcopy */
 	postcondition: result = loans->collect(l:Loan | l.LoanedCopy) 
 }
 	  
 Contract LibraryManagementSystem::listReservationBook(uid : Integer) : Set(BookCopy) {
-	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid),  
+	/* find specific user instance by userid */
+	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid),
+	/* res ???? */
 				res:Set(Reserve) = user.ReservedBook
+		/* user is defined */ 
+		/* res is defined */
 	precondition: user.oclIsUndefined() = false and res.oclIsUndefined() = false
+		/* get result through collect res reservedcopy */
 	postcondition: result = res->collect(r:Reserve| r.ReservedCopy) 
 } 
         
 Contract LibraryManagementSystem::listRecommendBook(uid : Integer) : Set(RecommendBook) {
+	/* find specific user instance by userid */
+	/* rbooks ???? */
 	definition:  user:User = User.allInstance()->any(u:User | u.UserID = uid),  
 				rBooks:Set(RecommendBook) = user.RecommendedBook 
+	/* user is defined */ 
+	/* rbooks is defined */
 	precondition: user.oclIsUndefined() = false and rBooks.oclIsUndefined() = false
+	/* assign rbooks to result */
 	postcondition: result = rBooks
 } 
   
 /* For Book and Book Copy*/
 Contract LibraryManagementSystem::recommendBook(uid : Integer, book : RecommendBook) {
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
+	/* user is defined */
+	/* book was associated with book */
+	/* recommendbook was unassociated with book */
 	precondition: user.oclIsUndefined() = false and Book.allInstance()->excludes(book) and RecommendBook.allInstance()->excludes(book)
+	/* book recommenddate is today */
+	/* book recommenduser is user */
+	/* user recommendbook was associated with book */
+	/* recommendbook was associated with book */
 	postcondition: book.RecommendDate = Today and book.RecommendUser = user and user.RecommendedBook->includes(book) and RecommendBook.allInstance()->includes(book)
 }     
    
-Contract LibraryManagementSystem::addBook(book : Book) {  
+Contract LibraryManagementSystem::addBook(book : Book) { 
+	/* book was unassociated with book */
 	precondition :  Book.allInstance()->excludes(book)
+	/* book was associated with book */
 	postcondition : Book.allInstance()->includes(book)
 }       
          
 Contract LibraryManagementSystem::deleteBook(callNo: String) {
+	/* find specific book instance by callno */
+	/* bookcopys ????? */
 	definition: book:Book = Book.allInstance()->any(b:Book | b.CallNo = callNo), bookcopys:Set(BookCopy) = book.Copys
+	/* book is defined */
+	/* book was associated with book */
 	precondition: book.oclIsUndefined() = false and Book.allInstance()->includes(book)
+	/* bookcopy was unassociated all bookcopys */
+	/* book was unassociated with book */
 	postcondition: BookCopy.allInstance()->excludesAll(bookcopys) and Book.allInstance()->excludes(book)  
 }      
   
 Contract LibraryManagementSystem::queryBookCopy(barcode : Integer) : BookCopy {
 	precondition: true
+	/* get result through finding specific bookcopy by barcode */
 	postcondition: result = BookCopy.allInstance()->any(copy:BookCopy | copy.Barcode = barcode)
 }  
       
 Contract LibraryManagementSystem::addBookCopy(callNo: String, copy: BookCopy) {
+	/* find spcific bookcopy instance by callno*/
 	definition: book:Book = Book.allInstance()->any(b:Book | b.CallNo = callNo)
+	/* book is defined */
+	/* book copys excludes copy */
+	/* bookcopy was unassociated with copy */
 	precondition: book.oclIsUndefined() = false and book.Copys->excludes(copy) and BookCopy.allInstance()->excludes(copy)
+	/* book copys incluedes copy */
+	/* copy was associated with book */
+	/* bookcopy was associated with copy */
 	postcondition: book.Copys->includes(copy) and copy.BookBelongs = book and BookCopy.allInstance()->includes(copy)
 }
    
 Contract LibraryManagementSystem::deleteBookCopy(barcode : Integer) {
+	/* find spcific bookcopy instance by barcode*/
 	definition: copy:BookCopy = BookCopy.allInstance()->any(c:BookCopy | c.Barcode = barcode)
+	/* copy is defined */
+	/* bookcopy was associated with copy */
 	precondition: copy.oclIsUndefined() = false and BookCopy.allInstance()->includes(copy)
+	/* bookcopy was unassociated with copy */
 	postcondition: BookCopy.allInstance()->excludes(copy)
 }             
      
 /* For user account*/ 
 Contract LibraryManagementSystem::createUser(user : User) {
+	/*user was unassoicated with user */
 	precondition: User.allInstance()->excludes(user)
+	/*user was assoicated with user */
 	postcondition: User.allInstance()->includes(user)
 } 
    
 Contract LibraryManagementSystem::deleteUser(uid : Integer) {
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
+	/*user was assoicated with user */
 	precondition:  User.allInstance()->includes(user)
+	/*user was unassoicated with user */
 	postcondition: User.allInstance()->excludes(user)
 }      
                      
 Contract LibraryManagementSystem::queryUser(uid : Integer, librarianID : Integer) : User { 
+	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
+	/* user is defined */
 	precondition: user.oclIsUndefined() = false 
+	/* assign user to result */
 	postcondition: result = user   
 }
        
 /* For Librarian account */
 Contract LibraryManagementSystem::createLibrarian(lib : Librarian) { 
+	/*librarian was unassoicated with librarian */
 	precondition: Librarian.allInstance()->excludes(lib)
 	/*librarian was assoicated with librarian */
 	postcondition: Librarian.allInstance()->includes(lib) 
 }
 
 Contract LibraryManagementSystem::deleteLibrarian(librarianID : Integer) {
-/*find specific Librarian instance by librainID */
+	/*find specific Librarian instance by librainID */
 	definition: librarian:Librarian = Librarian.allInstance()->any(lib:Librarian | lib.LibrarianID = librarianID)
 	/*librarian was assoicated with librarian?????我的理解是所有librarian中包含这个librarian*/
 	precondition: Librarian.allInstance()->includes(librarian)
 	/*???????从所有的librarian中除掉这个librarian*/
+	/*librarian was unassoicated with librarian */
 	postcondition: Librarian.allInstance()->excludes(librarian)
 }
  
