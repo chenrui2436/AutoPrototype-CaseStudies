@@ -174,6 +174,7 @@ Entity User {
 	ReservedBook : Reserve*
 	RecommendedBook : RecommendBook*
 	
+}             
 	[INV]
 	inv: User.allInstance()->forAll(u1, u2 | u1.UserID <> u2.UserID)
 }
@@ -303,7 +304,7 @@ Entity Librarian {
 Contract LibraryManagementSystem::searchBookByBarCode(barcode : Integer) : Set(Book)  {
 	/* barcode type is integer */
 	precondition: barcode.oclIsTypeOf(Integer)
-	/get result through finding specific book by exist bookcopy by barcode?????*/
+	/*get result through finding specific book by exist bookcopy by barcode?????*/
 	postcondition: result = Book.allInstance()->select(book:Book | book.Copys->exists(c:BookCopy | c.Barcode = barcode))
 }       
      
@@ -329,9 +330,9 @@ Contract LibraryManagementSystem::searchBookByISBN(ISBNnumber : Integer) : Set(B
 } 
      
 Contract LibraryManagementSystem::searchBookBySubject(subject : String) : Set(Book) {
-	/*subject type is string */
+	/* subject type is string */
 	precondition: subject.oclIsTypeOf(String)
-	/get result through finding specific book by exist subject by subject name ??????*/
+	/* get result through finding specific book by exist subject by subject name ??????*/
 	postcondition: result = Book.allInstance()->select(book:Book| book.Subject->exists(s:Subject | s.Name = subject))
 }          
    
@@ -341,74 +342,130 @@ Contract LibraryManagementSystem::makeReservation(uid : Integer, barcode : Integ
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
 	/* find spcific bookcopy instance by barcode*/
 				copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode)
-	/*user is defined*/
-	/*copy is defined*/
-	/* 
+	/* user is defined*/
+	/* copy is defined*/
+	/* copystatus is loaned */
+	/* copy is not reserved */
 	precondition:  user.oclIsUndefined() = false and copy.oclIsUndefined() = false and copy.Status = CopyStatus::LOANED and copy.IsReserved = false
-	
+	/* A Reserve instance res was created */
+	/* copy is reserved */
+	/* res reserveclosed is false */
+	/* res reserverd user is user*/
+	/* res reserverd copy is user*/
+	/* user was associated with reserve */
+	/* copy was associated with reserve */
 	postcondition: let res:Reserve in res.oclIsNew() and copy.IsReserved = true and res.IsReserveClosed = false and res.ReservedUser = user and res.ReservedCopy = copy and user.ReservedBook->includes(res) and 
 					copy.ReservationRecord->includes(res) 
 }             
   
 Contract LibraryManagementSystem::cannelReservation(uid : Integer, barcode : Integer)  {
-	
+	/* find spcific user instance by userid*/
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
-		 		copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode), 
+				/* find spcific bookcopy instance by barcode*/
+		 		copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode),
+				/* find spcific Reserve instance by reservedcopy and reservereduser*/
 				res:Reserve = Reserve.allInstance()->any(r:Reserve | r.ReservedCopy = copy and r.ReservedUser = user)
-				
+	/* user is defined */		
+	/* copy is defined */
+	/* copystatus is loaned */
+	/* copy is reserved */
+	/* res is defined */
+	/* res reserveclosed is false */
 	precondition:  user.oclIsUndefined() = false and copy.oclIsUndefined() = false and copy.Status = CopyStatus::LOANED and copy.IsReserved = true and res.oclIsUndefined() = false and res.IsReserveClosed = false
-	
+	/* copy is not  reserved */
+	/* res reserveclosed is true */
 	postcondition:  copy.IsReserved = false and res.IsReserveClosed = true
 }           
 	     
 Contract LibraryManagementSystem::borrowBook(uid : Integer, barcode: Integer)  {
-	          
-	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid),           
+	  /* find spcific user instance by userid*/        
+	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid),  
+		/* find spcific bookcopy instance by barcode*/
 	            copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode),
+		    /* find spcific Reserve instance by reservedcopy and reservereduser and  reserveclosed is false*/
 	            res:Reserve = Reserve.allInstance()->any(r:Reserve | r.ReservedCopy = copy and r.ReservedUser = user and r.IsReserveClosed = false)	        
-	                   
+	            /* user is defined*/ 
+		    /* copy is defined*/
+		/* user borrowstatus is normal */
+		/* user SuspensionDays is equal to 0 */
 	precondition: user.oclIsUndefined() = false and copy.oclIsUndefined() = false and user.BorrowStatus = BorrowStatus::NORMAL and user.SuspensionDays = 0 and
+		  /* if user type is student */
 		  if user.oclIsTypeOf(Student) 
 		  then 
+		  	/* if user programme is bachelor */
 		  		if user.Programme = Programme::BACHELOR
+				/* then user LoanedNumber is less than 20 */
 		  		then 
 		  			user.LoanedNumber < 20
+				/* else if user programme is master */
 		  		else
 		  			if user.Programme = Programme::MASTER
+					/* then user LoanedNumber is less than 40 */
 		  			then
 		  				user.LoanedNumber < 40
+					/* else user LoanedNumber is less than 60 */	
 		  			else
-		  				user.LoanedNumber < 60 
+		  				user.LoanedNumber < 60
+						/* end if */
 		  			endif 
+						/* end if */
 		  		endif 
+			/* else user LoanedNumber is less than 60 */		
 		  else 
 		  		user.LoanedNumber < 60
+				/* end if */
 		  endif
 		  and  
+		  /* copy status is available */
+		  /* copy status is ONHOLDSHELF */
+		  /* copy is reserved */
+		  /* res is defined */
+		  /* res reserveclosed is false */
 		  (copy.Status = CopyStatus::AVAILABLE or (copy.Status = CopyStatus::ONHOLDSHELF and copy.IsReserved = true and res.oclIsUndefined() = false and res.IsReserveClosed = false))
- 	  
+ 	  /* A Loan instance loan was created */
+	  /* loaneduser is user */
+	  /* loanedcopy is copu */
+	  /* loan is not returned */
+	  /* loandate is today */
+	  /* user LoanedNumber plus 1 */
+	  /* user was associated with loan */
+	  /* copy was associated with loan */
 	postcondition: let loan:Loan in loan.oclIsNew() and loan.LoanedUser = user and loan.LoanedCopy = copy and loan.IsReturned = false
 	    and loan.LoanDate = Today and user.LoanedNumber = user.LoanedNumber@pre + 1
 	    and user.LoanedBook->includes(loan) and copy.LoanedRecord->includes(loan) and
+	      /* if user type is student */
 		if user.oclIsTypeOf(Student)
+		/* then loan duedate is today after 30 */
 		then
 			loan.DueDate = Today.After(30)
+		/* else loan duedate is today after 60 */
 		else
 			loan.DueDate = Today.After(60)
+		/* end if */
 		endif 
 		and 
+		/* if previous copy status is ONHOLDSHELF */
 		if  copy.Status@pre = CopyStatus::ONHOLDSHELF
+		/* then copy is not reserved */
+		/* res reserveclosed is true */
 		then	
 			copy.IsReserved = false and res.IsReserveClosed = true 
+		/* end if */
 		endif
+		/* copystatus is loaned */
 		and copy.Status = CopyStatus::LOANED 
+		/* loan is not OverDue3Days */
+		/* loan is not OverDue10Days */
+		/* loan is not OverDue17Days */
+		/* loan is not OverDue31Days */
 		and loan.OverDue3Days = false and loan.OverDue10Days = false and loan.OverDue17Days = false and loan.OverDue31Days = false
 		          
 }    
               
 Contract LibraryManagementSystem::returnBook(barcode: Integer) {
-	
+	/* find spcific bookcopy instance by barcode and copystatus is loaned*/
 	definition: copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode and bc.Status = CopyStatus::LOANED), 
+	            /* find spcific loan instance by loanedcopy and IsReturned is false*/
 	            loan:Loan = Loan.allInstance()->any(l:Loan | l.LoanedCopy = copy and l.IsReturned = false),
 	            loans:Set(Loan) =  Loan.allInstance()->select(l:Loan | l.LoanedUser = loan.LoanedUser and l.IsReturned = false and l.DueDate.isAfter(Today)),
 	            res:Reserve = copy.ReservationRecord->any(r:Reserve | r.ReservedCopy = copy)
@@ -619,6 +676,7 @@ Contract LibraryManagementSystem::queryUser(uid : Integer, librarianID : Integer
 /* For Librarian account */
 Contract LibraryManagementSystem::createLibrarian(lib : Librarian) { 
 	precondition: Librarian.allInstance()->excludes(lib)
+	/*librarian was assoicated with librarian */
 	postcondition: Librarian.allInstance()->includes(lib) 
 }
 
