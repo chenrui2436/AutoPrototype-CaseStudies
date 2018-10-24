@@ -352,8 +352,8 @@ Contract LibraryManagementSystem::makeReservation(uid : Integer, barcode : Integ
 	/* res reserveclosed is false */
 	/* res reserverd user is user*/
 	/* res reserverd copy is user*/
-	/* user was associated with reserve */
-	/* copy was associated with reserve */
+	/* user ReservedBook includes res */
+	/* copy ReservationRecord includes reserve */
 	postcondition: let res:Reserve in res.oclIsNew() and copy.IsReserved = true and res.IsReserveClosed = false and res.ReservedUser = user and res.ReservedCopy = copy and user.ReservedBook->includes(res) and 
 					copy.ReservationRecord->includes(res) 
 }             
@@ -363,7 +363,7 @@ Contract LibraryManagementSystem::cannelReservation(uid : Integer, barcode : Int
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid), 
 				/* find spcific bookcopy instance by barcode*/
 		 		copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode),
-				/* find spcific Reserve instance by reservedcopy and reservereduser*/
+				/* find spcific Reserve instance by reservedcopy and reservereduser */
 				res:Reserve = Reserve.allInstance()->any(r:Reserve | r.ReservedCopy = copy and r.ReservedUser = user)
 	/* user is defined */		
 	/* copy is defined */
@@ -378,7 +378,7 @@ Contract LibraryManagementSystem::cannelReservation(uid : Integer, barcode : Int
 }           
 	     
 Contract LibraryManagementSystem::borrowBook(uid : Integer, barcode: Integer)  {
-	  /* find spcific user instance by userid*/        
+	  /* find spcific user instance by userid */        
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid),  
 		/* find spcific bookcopy instance by barcode*/
 	            copy:BookCopy = BookCopy.allInstance()->any(bc:BookCopy | bc.Barcode = barcode),
@@ -423,13 +423,13 @@ Contract LibraryManagementSystem::borrowBook(uid : Integer, barcode: Integer)  {
 		  /* res reserveclosed is false */
 		  (copy.Status = CopyStatus::AVAILABLE or (copy.Status = CopyStatus::ONHOLDSHELF and copy.IsReserved = true and res.oclIsUndefined() = false and res.IsReserveClosed = false))
  	  /* A Loan instance loan was created */
-	  /* loaneduser is user */
-	  /* loanedcopy is copu */
+	  /* loan loaneduser is user */
+	  /* loan loanedcopy is copy */
 	  /* loan is not returned */
 	  /* loandate is today */
 	  /* user LoanedNumber plus 1 */
-	  /* user was associated with loan */
-	  /* copy was associated with loan */
+	  /* user loanedbook includes loan */
+	  /* copy loanedrecord includes loan */
 	postcondition: let loan:Loan in loan.oclIsNew() and loan.LoanedUser = user and loan.LoanedCopy = copy and loan.IsReturned = false
 	    and loan.LoanDate = Today and user.LoanedNumber = user.LoanedNumber@pre + 1
 	    and user.LoanedBook->includes(loan) and copy.LoanedRecord->includes(loan) and
@@ -485,7 +485,7 @@ Contract LibraryManagementSystem::returnBook(barcode: Integer) {
 				/* if copy isreserved is equal to true */
 				if copy.IsReserved = true 
 				/* then copy status is ONHOLDSHELF */
-				/* send notification to reserveduser */
+				/* send notification to res reserveduser */
 				then
 					copy.Status =  CopyStatus::ONHOLDSHELF and sendNotificationEmail(res.ReservedUser)
 				/* else copy status is available */
@@ -546,7 +546,7 @@ Contract LibraryManagementSystem::renewBook(uid: Integer, barcode: Integer)  {
 		  			endif  
 				/* end if */		
 		  		endif
-		/* else loan due date is after 60 */
+		/* else loan duedate is after 60 */
 		else
 			loan.DueDate = loan.DueDate@pre.After(60)
 		/* end if */	
@@ -559,11 +559,11 @@ Contract LibraryManagementSystem::payOverDueFee(uid: Integer, fee: Real)  {
 	 /* ?????? */
 	 			 loans:Set(Loan) = Loan.allInstance()->select(l:Loan | l.LoanedUser = user and l.DueDate.isBefore(Today) and l.IsReturned = true and l.OverDueFee > 0)
 	   /* user is defined */
-	   /* loan(?) is not empty */
+	   /* loans is not empty */
 	   /* fee is more than user OverDueFee */
 	 precondition: user.oclIsUndefined() = false and loans.notEmpty() and fee >= user.OverDueFee
 	 /* user OverDueFee is 0 */
-	 /* all loan OverDueFee is 0  ?????? */
+	 /* all loans OverDueFee is 0  ?????? */
 	 postcondition: user.OverDueFee = 0 and loans->forAll(l:Loan | l.OverDueFee = 0) 
 }      
  
@@ -583,41 +583,74 @@ Contract LibraryManagementSystem::dueSoonNotification()  {
               
          
 Contract LibraryManagementSystem::checkOverDueandComputeOverDueFee() { 
+	/* find specific loan ???? */
 	definition: loans:Set(Loan) = Loan.allInstance()->select(loan:Loan | loan.IsReturned = false and loan.DueDate.isBefore(Today)) 
 	precondition: true 
 	postcondition:  
+		/* All loans are not returned ???? */
 		loans->forAll(loan:Loan | loan.IsReturned = false and
+			/* if today is 3 days after loan duedate */
+			/* loan OverDue3Days is false */
 			if Today.Before(3).isAfter(loan.DueDate) and loan.OverDue3Days = false
+			/* then loan loaneduser borrowstatus is suspend */
+			/* send notificationemail to loan loaned user */
+			/* loan OverDue3Days is true */
 			then  
 				loan.LoanedUser.BorrowStatus = BorrowStatus::SUSPEND and sendNotificationEmail(loan.LoanedUser) and loan.OverDue3Days = true
+			/* end if */
 			endif 
 			and
+			/* if today is 10 days after loan duedate */
+			/* loan OverDue10Days is false */
 			if Today.Before(10).isAfter(loan.DueDate) and loan.OverDue10Days = false
+			/* then loan loaneduser SuspensionDays plus 14 */
+			/* send notificationemail to loan loaned user */
+			/* loan OverDue3Days is true */
 			then
 				loan.LoanedUser.SuspensionDays = loan.LoanedUser.SuspensionDays@pre + 14  and sendNotificationEmail(loan.LoanedUser) and loan.OverDue10Days = true
+			/* end if */
 			endif
 			and
+			/* if today is 17 days after loan duedate */
+			/* loan OverDue17Days is false */
 			if Today.Before(17).isAfter(loan.DueDate) and loan.OverDue17Days = false 
+			/* then loan loaneduser SuspensionDays plus 30 */
+			/* send notificationemail to loan loaned user */
+			/* loan OverDue17Days is true */
 			then
 				loan.LoanedUser.SuspensionDays = loan.LoanedUser.SuspensionDays@pre + 30  and sendNotificationEmail(loan.LoanedUser) and loan.OverDue17Days = true 
+			/* end if */
 			endif
 			and
+			/* if today is 31 days after loan duedate */
+			/* loan OverDue31Days is false */
 			if Today.Before(31).isAfter(loan.DueDate) and loan.OverDue31Days = false  
+			/* then loan overduefee is 60 */
+			/* send notificationemail to loan loaned user */
+			/* loan OverDue31Days is true */
+			/* then loan loaneduser overduefee plus loan overduefee */
 			then
 				loan.OverDueFee = 60 and sendNotificationEmail(loan.LoanedUser) and  loan.OverDue31Days = true and
 				loan.LoanedUser.OverDueFee = loan.LoanedUser.OverDueFee@pre + loan.OverDueFee 
+			/* end if */
 			endif			
 		)
 }
  
 Contract LibraryManagementSystem::countDownSuspensionDay() {
 	precondition: true
+	/* A user instance users was created ?????*/
 	postcondition: let users:Set(User) = User.allInstance()->select(u:User | u.SuspensionDays > 0) in
 	users->forAll(u:User | u.SuspensionDays = u.SuspensionDays@pre - 1
 	 			and   
+				/* if u BorrowStatus is suspend */
+				/* u OverDueFee is 0 */
+				/* u SuspensionDays is 0 */
 				if u.BorrowStatus = BorrowStatus::SUSPEND and u.OverDueFee = 0 and u.SuspensionDays = 0
+				/* then u BorrowStatus is normal */
 				then
 					u.BorrowStatus = BorrowStatus::NORMAL
+					/* end if */
 				endif )
 }
 
@@ -640,7 +673,7 @@ Contract LibraryManagementSystem::listBorrowHistory(uid : Integer) : Set(Loan) {
 		/* user is defined */ 
 		/* loans is defined */
 	precondition: user.oclIsUndefined() = false and loans.oclIsUndefined() = false
-	/* get result through collect loan loanedcopy */
+	/* get result through collect loans loanedcopy */
 	postcondition: result = loans->collect(l:Loan | l.LoanedCopy)   
 }*/
      
@@ -649,7 +682,7 @@ Contract LibraryManagementSystem::listHodingBook(uid : Integer) : Set(Loan) {
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
 	/* user is defined */
 	precondition: user.oclIsUndefined() = false   
-	/* get result through collect ??? */
+	/* get result through select user loandedbook loan is not returned ??? */
 	postcondition: result =  user.LoanedBook->select(l:Loan | l.IsReturned = false)
 }      
       
@@ -661,7 +694,7 @@ Contract LibraryManagementSystem::listOverDueBook(uid : Integer) : Set(BookCopy)
 	/* user is defined */
 	/* loans is defined */
 	precondition: user.oclIsUndefined() = false and loans.oclIsUndefined() = false
-	/* get result through collect loan loanedcopy */
+	/* get result through collect loans loanedcopy ???? */
 	postcondition: result = loans->collect(l:Loan | l.LoanedCopy) 
 }
 	  
@@ -673,7 +706,7 @@ Contract LibraryManagementSystem::listReservationBook(uid : Integer) : Set(BookC
 		/* user is defined */ 
 		/* res is defined */
 	precondition: user.oclIsUndefined() = false and res.oclIsUndefined() = false
-		/* get result through collect res reservedcopy */
+		/* get result through collect res reservedcopy?????? */
 	postcondition: result = res->collect(r:Reserve| r.ReservedCopy) 
 } 
         
@@ -694,12 +727,12 @@ Contract LibraryManagementSystem::recommendBook(uid : Integer, book : RecommendB
 	/* find specific user instance by userid */
 	definition: user:User = User.allInstance()->any(u:User | u.UserID = uid)
 	/* user is defined */
-	/* book was associated with book */
+	/* book was unassociated with book */
 	/* recommendbook was unassociated with book */
 	precondition: user.oclIsUndefined() = false and Book.allInstance()->excludes(book) and RecommendBook.allInstance()->excludes(book)
 	/* book recommenddate is today */
 	/* book recommenduser is user */
-	/* user recommendbook was associated with book */
+	/* user recommendbook includes book */
 	/* recommendbook was associated with book */
 	postcondition: book.RecommendDate = Today and book.RecommendUser = user and user.RecommendedBook->includes(book) and RecommendBook.allInstance()->includes(book)
 }     
